@@ -1,0 +1,1240 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登入 & 照片檢核 - 臺東縣政府公共工程管理系統</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- 引入 FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- 引入 html2pdf.js 用於 PDF 下載 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            900: '#0c4a6e',
+                        },
+                        accent: {
+                            500: '#f97316', // Orange
+                            600: '#ea580c',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Noto Sans TC', 'Inter', 'sans-serif'],
+                        serif: ['Noto Serif TC', 'serif'], // 報告用襯線體
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: 'Noto Sans TC', 'Inter', sans-serif;
+            overflow-x: hidden;
+        }
+        
+        /* --- 動態背景 (共用) --- */
+        .animated-background {
+            background: linear-gradient(to top, #60a5fa, #a5f3fc);
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -2;
+        }
+
+        .hot-air-balloon {
+            position: absolute;
+            bottom: 10%;
+            left: 15%;
+            width: 120px;
+            animation: float 8s ease-in-out infinite;
+            opacity: 0.9;
+            z-index: -1;
+        }
+        @keyframes float {
+            0% { transform: translateY(0px) translateX(0px) rotate(0deg); }
+            50% { transform: translateY(-25px) translateX(15px) rotate(3deg); }
+            100% { transform: translateY(0px) translateX(0px) rotate(0deg); }
+        }
+        .hot-air-balloon-2 {
+            position: absolute;
+            bottom: 25%;
+            right: 10%;
+            width: 80px;
+            animation: float 12s ease-in-out infinite reverse;
+            opacity: 0.8;
+            z-index: -1;
+        }
+
+        .wave {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 200%;
+            height: 150px;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 88.7'%3e%3cpath d='M800 56.9c-155.5 0-204.9-50-405.5-49.9-200 0-250 49.9-394.5 49.9v31.8h800v-.2-31.6z' fill='%23ffffff' fill-opacity='0.3'/%3e%3c/svg%3e");
+            animation: wave 15s linear infinite;
+            z-index: -1;
+        }
+        @keyframes wave {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-100%); }
+        }
+        .wave-2 {
+            animation-duration: 20s;
+            animation-direction: reverse;
+            opacity: 0.7;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 88.7'%3e%3cpath d='M800 56.9c-155.5 0-204.9-50-405.5-49.9-200 0-250 49.9-394.5 49.9v31.8h800v-.2-31.6z' fill='%23ffffff' fill-opacity='0.5'/%3e%3c/svg%3e");
+        }
+
+        /* 玻璃擬態 */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+        }
+
+        /* 掃描線動畫 */
+        .scanning-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: #f97316;
+            box-shadow: 0 0 10px #f97316;
+            animation: scan 1.5s ease-in-out infinite alternate;
+            z-index: 10;
+        }
+        @keyframes scan {
+            0% { top: 0%; opacity: 0.8; }
+            100% { top: 100%; opacity: 0.8; }
+        }
+
+        /* 模擬特徵點 */
+        .keypoint {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            background-color: #ef4444; /* red-500 */
+            border-radius: 50%;
+            border: 1px solid white;
+            z-index: 20;
+            animation: blink 1s infinite;
+        }
+        @keyframes blink {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.5); opacity: 0.7; }
+        }
+
+        /* 連結線 (SVG) */
+        .connection-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 15;
+        }
+        
+        /* 自定義滾動條 */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+        
+        /* 選中狀態樣式 */
+        .anomaly-item.active {
+            background-color: #eff6ff; /* blue-50 */
+            border-left-color: #0ea5e9; /* blue-500 */
+        }
+
+        /* Modal 動畫 */
+        .modal {
+            transition: opacity 0.25s ease;
+        }
+        body.modal-active {
+            overflow-x: hidden;
+            overflow-y: visible !important;
+        }
+
+        /* 列印專用樣式 */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #report-view, #report-view * {
+                visibility: visible;
+            }
+            #report-view {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                background: white;
+                z-index: 9999;
+                padding: 0;
+                margin: 0;
+                overflow: visible;
+            }
+            /* 隱藏列印預覽中的按鈕 */
+            .no-print {
+                display: none !important;
+            }
+            /* 強制背景色列印 */
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen relative">
+
+    <!-- 動態背景 (共用) -->
+    <div class="animated-background">
+        <svg class="hot-air-balloon" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><g transform="translate(100 100)"><path d="M52.3,-43.1C65.5,-28.9,72.4,-6.1,68.9,14.2C65.4,34.5,51.5,52.4,34.3,61.1C17.1,69.8,-3.4,69.3,-22.4,61.1C-41.4,53,-58.8,37.2,-66.2,17.4C-73.6,-2.4,-71,-26.1,-58.8,-40.4C-46.6,-54.6,-25.7,-59.3,-2.6,-58.1C20.5,-56.9,40.9,-55.5,52.3,-43.1Z" fill="#f97316"></path><path d="M-2.6,-58.1C-25.7,-59.3,-46.6,-54.6,-58.8,-40.4C-71,-26.1,-73.6,-2.4,-66.2,17.4C-58.8,37.2,-41.4,53,-22.4,61.1L-17.5,65.5L-17.5,100L17.5,100L17.5,65.5L22.4,61.1C37.1,53,51.5,34.5,68.9,14.2C72.4,-6.1,65.5,-28.9,52.3,-43.1C40.9,-55.5,20.5,-56.9,-2.6,-58.1Z" fill="#fb923c" transform="scale(0.8)"></path></g></svg>
+        <svg class="hot-air-balloon-2" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><g transform="translate(100 100)"><path d="M52.3,-43.1C65.5,-28.9,72.4,-6.1,68.9,14.2C65.4,34.5,51.5,52.4,34.3,61.1C17.1,69.8,-3.4,69.3,-22.4,61.1C-41.4,53,-58.8,37.2,-66.2,17.4C-73.6,-2.4,-71,-26.1,-58.8,-40.4C-46.6,-54.6,-25.7,-59.3,-2.6,-58.1C20.5,-56.9,40.9,-55.5,52.3,-43.1Z" fill="#4ade80"></path></g></svg>
+        <div class="wave"></div>
+        <div class="wave wave-2"></div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- 視圖 1: 登入頁面 (預設顯示) -->
+    <!-- ========================================== -->
+    <div id="login-view" class="flex items-center justify-center min-h-screen p-4 transition-all duration-500">
+        <div class="w-full max-w-sm">
+            <div class="glass-panel rounded-3xl p-8 space-y-6">
+                
+                <!-- 標題區 -->
+                <div class="text-center">
+                    <h1 class="text-3xl font-bold text-gray-800">公共工程管理系統</h1>
+                    <p class="mt-2 text-gray-600">歡迎回來，請登入您的帳戶</p>
+                </div>
+
+                <!-- 登入表單 -->
+                <form class="space-y-6" onsubmit="event.preventDefault(); alert('這是示意頁面，請點擊下方的「工程照片智能比對」按鈕');">
+                    <div class="space-y-4">
+                        <div>
+                            <label for="account" class="text-sm font-medium text-gray-700">您的帳號</label>
+                            <input id="account" type="text" class="mt-1 w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/70 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-400 transition" placeholder="請輸入帳號">
+                        </div>
+                        <div>
+                            <label for="password" class="text-sm font-medium text-gray-700">您的密碼</label>
+                            <input id="password" type="password" class="mt-1 w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/70 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-400 transition" placeholder="請輸入密碼">
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between text-sm">
+                        <div class="flex items-center">
+                            <input id="remember-me" type="checkbox" class="h-4 w-4 text-orange-500 focus:ring-orange-400 border-gray-300 rounded">
+                            <label for="remember-me" class="ml-2 block text-gray-900">記住我</label>
+                        </div>
+                        <a href="#" class="font-medium text-blue-600 hover:text-blue-500">忘記密碼?</a>
+                    </div>
+
+                    <button type="submit" class="w-full py-3 px-4 border border-transparent text-base font-medium rounded-xl text-white bg-gray-800 hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-800 transition shadow-lg">
+                        登入
+                    </button>
+                </form>
+
+                <!-- 分隔線 -->
+                <div class="relative">
+                    <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-gray-300"></div></div>
+                    <div class="relative flex justify-center text-sm"><span class="px-2 bg-white/50 text-gray-500 rounded">免帳號工具</span></div>
+                </div>
+
+                <!-- 照片比對入口按鈕 -->
+                <button onclick="switchView('verification')" class="group w-full py-4 px-4 border-2 border-orange-500 border-dashed rounded-xl text-orange-600 bg-orange-50 hover:bg-orange-100 focus:outline-none transition-all flex items-center justify-center gap-3 shadow-sm hover:shadow-orange-200">
+                    <div class="w-10 h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <i class="fas fa-camera"></i>
+                    </div>
+                    <div class="text-left">
+                        <div class="text-base font-bold">工程照片智能比對</div>
+                        <div class="text-xs text-orange-500 opacity-80">無需登入即可使用比對功能</div>
+                    </div>
+                    <i class="fas fa-arrow-right ml-auto opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                </button>
+
+            </div>
+            
+            <div class="text-center text-xs text-white/80 pt-6">
+                <p>&copy; 2026 臺東縣政府 版權所有</p>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ========================================== -->
+    <!-- 視圖 2: 照片檢核儀表板 (大量資料版) -->
+    <!-- ========================================== -->
+    <div id="verification-view" class="hidden fixed inset-0 z-50 overflow-hidden flex flex-col bg-white/30 backdrop-blur-sm transition-all duration-500">
+        
+        <!-- 頂部導航 -->
+        <header class="bg-white/90 backdrop-blur-md border-b border-gray-200 px-6 py-4 flex justify-between items-center shadow-md z-30">
+            <div class="flex items-center gap-4">
+                <button onclick="switchView('login')" class="text-gray-500 hover:text-gray-800 hover:bg-gray-100 p-2 rounded-full transition" title="返回登入頁">
+                    <i class="fas fa-arrow-left text-xl"></i>
+                </button>
+                <div>
+                    <h1 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                        <i class="fas fa-fingerprint text-orange-500"></i> AI 影像鑑識儀表板
+                    </h1>
+                </div>
+            </div>
+        </header>
+
+        <!-- 內容滾動區 -->
+        <div class="flex-1 overflow-y-auto p-4 md:p-8 relative">
+            
+            <!-- 處理中遮罩 (模擬用) -->
+            <div id="processing-overlay" class="hidden absolute inset-0 bg-white/80 backdrop-blur-sm z-40 flex flex-col items-center justify-center">
+                <div class="w-64 space-y-4 text-center">
+                    <div class="w-16 h-16 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin mx-auto"></div>
+                    <h3 class="text-xl font-bold text-gray-800" id="process-text">正在上傳檔案...</h3>
+                    <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                        <div id="process-bar" class="bg-orange-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                    <p class="text-xs text-gray-500 font-mono" id="process-detail">Initializing...</p>
+                </div>
+            </div>
+
+            <div class="max-w-[1600px] mx-auto space-y-8">
+
+                <!-- 區塊 1: 檔案上傳 -->
+                <div id="upload-section" class="glass-panel rounded-2xl p-8 transition-all duration-500">
+                    <div class="text-center mb-8">
+                        <h2 class="text-2xl font-bold text-gray-800">開始新案件檢核</h2>
+                        <p class="text-gray-500">系統將自動執行特徵值提取、資料庫比對與篡改偵測</p>
+                    </div>
+
+                    <!-- 輸入本案名稱 -->
+                    <div class="max-w-xl mx-auto mb-6">
+                        <label for="project-name-input" class="block text-sm font-bold text-gray-700 mb-2">請輸入本案工程名稱 / 案號</label>
+                        <div class="relative">
+                            <input type="text" id="project-name-input" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none shadow-sm" placeholder="例如：113年度大武鄉道路改善工程" value="113年度大武鄉道路改善工程">
+                            <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-400">
+                                <i class="fas fa-pen"></i>
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">此名稱將用於標示報告內容</p>
+                    </div>
+                    
+                    <div id="drop-zone" class="border-3 border-dashed border-gray-300 rounded-2xl p-12 text-center transition-all duration-300 hover:border-orange-400 hover:bg-orange-50/50 cursor-pointer flex flex-col items-center justify-center bg-white/50 group h-64 max-w-4xl mx-auto">
+                        <div class="w-20 h-20 bg-blue-100 text-blue-500 rounded-full flex items-center justify-center mb-6 text-3xl group-hover:scale-110 transition-transform shadow-sm">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-gray-700">拖曳 ZIP 壓縮檔至此，或點擊上傳</h3>
+                        <p class="text-sm text-gray-500 mt-2">支援格式：.zip, .rar (請包含依資料夾分類的前、中、後照片)</p>
+                        <input type="file" id="file-input" class="hidden" accept=".zip,.rar">
+                    </div>
+
+                    <!-- 範例資料按鈕 -->
+                    <div class="mt-6 text-center">
+                         <button id="demo-btn" class="text-sm text-gray-500 underline hover:text-orange-600 transition hover:font-bold">
+                            <i class="fas fa-flask mr-1"></i>沒有檔案？載入範例資料進行演示 (102筆異常)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 區塊 2: 鑑識結果 (Master-Detail 佈局) -->
+                <div id="results-section" class="hidden h-[85vh] flex flex-col animate-fade-in-up">
+                    
+                    <!-- 統計列 -->
+                    <div class="flex-none bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-4 flex justify-between items-center">
+                        <div class="flex items-center gap-6">
+                            <div>
+                                <h2 class="text-lg font-bold text-gray-800">檢核結果總覽</h2>
+                                <p class="text-xs text-gray-500 display-project-name">宣稱專案 (...)</p>
+                            </div>
+                            <div class="h-8 w-px bg-gray-300"></div>
+                            <div class="flex gap-4">
+                                <div class="text-center">
+                                    <span class="block text-gray-500 text-[10px] uppercase">總筆數</span>
+                                    <span class="font-bold text-xl text-gray-800">452</span>
+                                </div>
+                                <div class="text-center">
+                                    <span class="block text-red-500 text-[10px] uppercase font-bold">異常檢出</span>
+                                    <span class="font-bold text-xl text-red-600" id="total-anomaly-count">102</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="openCurrentReport()" class="bg-red-50 text-red-600 px-3 py-1.5 rounded-lg text-sm font-bold border border-red-100 hover:bg-red-100 transition">
+                                <i class="fas fa-file-export mr-1"></i> 匯出異常報告
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Master-Detail 雙欄佈局 -->
+                    <div class="flex-1 flex gap-6 overflow-hidden min-h-0">
+                        
+                        <!-- 左側：異常清單 (List View) -->
+                        <div class="w-full lg:w-1/3 bg-white rounded-xl border border-gray-200 flex flex-col shadow-sm">
+                            
+                            <!-- 清單 Header (整合篩選與說明) -->
+                            <div class="p-3 border-b bg-gray-50 flex flex-col gap-3">
+                                <div class="flex justify-between items-center">
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-bold text-gray-700 text-sm">異常項目 (102)</span>
+                                        <button onclick="toggleModal()" class="text-gray-400 hover:text-orange-500 transition-colors focus:outline-none" title="異常類型說明">
+                                            <i class="fas fa-exclamation-circle text-base"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <!-- 篩選工具列 -->
+                                <div class="flex gap-2">
+                                    <select id="filter-type" onchange="handleSortAndFilter()" class="flex-1 text-xs border-gray-300 border rounded-lg px-2 py-1.5 focus:ring-orange-500 focus:border-orange-500 bg-white">
+                                        <option value="all">所有異常類型</option>
+                                        <option value="internal">上傳資料重複</option>
+                                        <option value="database">跨案場資料庫比對</option>
+                                        <option value="filename">檔名重複疑慮</option>
+                                    </select>
+                                    <select id="sort-control" onchange="handleSortAndFilter()" class="flex-1 text-xs border-gray-300 border rounded-lg px-2 py-1.5 focus:ring-orange-500 focus:border-orange-500 bg-white">
+                                        <option value="risk-desc">風險: 高→低</option>
+                                        <option value="risk-asc">風險: 低→高</option>
+                                        <option value="time-new">時間: 新→舊</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- 這裡放清單 -->
+                            <div id="anomaly-list" class="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-2">
+                                <!-- JS 動態生成 -->
+                            </div>
+                        </div>
+
+                        <!-- 右側：詳細比對 (Detail View) -->
+                        <div class="hidden lg:flex w-2/3 flex-col gap-4 overflow-y-auto custom-scrollbar">
+                            
+                            <!-- 詳情卡片容器 -->
+                            <div id="detail-view-container" class="bg-white rounded-xl border border-gray-200 shadow-md p-6 min-h-[600px]">
+                                <!-- 預設顯示 -->
+                                <div class="h-full flex flex-col items-center justify-center text-gray-400">
+                                    <i class="fas fa-mouse-pointer text-4xl mb-4 opacity-50"></i>
+                                    <p>請點擊左側清單查看詳細比對結果</p>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- 視圖 3: 異常報告列印預覽 -->
+    <!-- ========================================== -->
+    <div id="report-view" class="hidden fixed inset-0 z-[200] bg-gray-100 overflow-y-auto flex flex-col items-center py-8">
+        
+        <!-- 操作按鈕 (列印時隱藏) -->
+        <div class="no-print fixed top-0 left-0 w-full bg-gray-800 text-white p-4 flex justify-between items-center shadow-lg z-[201]">
+            <h2 class="font-bold text-lg"><i class="fas fa-file-contract mr-2"></i>工程異常檢核報告預覽</h2>
+            <div class="flex gap-3">
+                <button onclick="toggleReport()" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm transition">關閉</button>
+                <button onclick="downloadPDF()" class="px-4 py-2 bg-green-600 hover:bg-green-500 rounded text-sm font-bold shadow-lg transition flex items-center">
+                    <i class="fas fa-file-download mr-2"></i>下載 PDF
+                </button>
+                <button onclick="window.print()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-sm font-bold shadow-lg transition">
+                    <i class="fas fa-print mr-2"></i>列印
+                </button>
+            </div>
+        </div>
+
+        <!-- 報告本體 (A4 尺寸) -->
+        <div id="report-content" class="bg-white w-[210mm] min-h-[297mm] p-[15mm] shadow-2xl mt-16 text-gray-800 font-serif relative">
+            
+            <!-- 報告標頭 -->
+            <div class="text-center border-b-2 border-black pb-4 mb-6">
+                <h1 class="text-2xl font-bold tracking-widest mb-2">臺東縣政府 公共工程影像檢核異常報告</h1>
+                <p class="text-sm">Taitung County Government Public Construction Image Verification Report</p>
+            </div>
+
+            <!-- 案件資訊 -->
+            <div class="mb-6">
+                <table class="w-full border-collapse border border-black text-sm">
+                    <tr>
+                        <td class="border border-black bg-gray-100 p-2 font-bold w-32">工程名稱</td>
+                        <td class="border border-black p-2 report-project-name">113年度大武鄉道路改善工程</td>
+                        <td class="border border-black bg-gray-100 p-2 font-bold w-32">檢核日期</td>
+                        <td class="border border-black p-2 report-date">2024/05/20</td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- 統計摘要 -->
+            <div class="mb-6">
+                <h3 class="font-bold text-lg mb-2 border-l-4 border-black pl-2">一、檢核統計摘要</h3>
+                <div class="flex justify-between items-center border border-black p-4 bg-gray-50">
+                    <div class="text-center w-1/3">
+                        <p class="text-xs text-gray-500">掃描總張數</p>
+                        <p class="text-2xl font-bold">452</p>
+                    </div>
+                    <div class="text-center w-1/3 border-l border-r border-gray-300">
+                        <p class="text-xs text-gray-500">異常檢出數</p>
+                        <p class="text-2xl font-bold text-red-600" id="report-total-anomalies">102</p>
+                    </div>
+                    <div class="w-1/3 pl-8">
+                        <p class="text-xs text-gray-500 mb-1 font-bold">異常狀態分佈：</p>
+                        <div class="text-xs space-y-1">
+                            <div class="flex justify-between pr-4">
+                                <span class="text-red-700 font-bold">內部重複</span>
+                                <span class="font-bold" id="report-count-internal">0</span>
+                            </div>
+                            <div class="flex justify-between pr-4">
+                                <span class="text-purple-700 font-bold">資料庫比對</span>
+                                <span class="font-bold" id="report-count-database">0</span>
+                            </div>
+                            <div class="flex justify-between pr-4">
+                                <span class="text-blue-700 font-bold">檔名重複</span>
+                                <span class="font-bold" id="report-count-filename">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 異常明細 (取前幾筆代表) -->
+            <div class="mb-6">
+                <h3 class="font-bold text-lg mb-2 border-l-4 border-black pl-2">二、重點異常明細</h3>
+                <table class="w-full text-xs border border-black">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="border border-black p-2 text-left w-12">編號</th>
+                            <th class="border border-black p-2 text-left w-24">異常類型</th>
+                            <th class="border border-black p-2 text-left">詳細內容說明</th>
+                            <th class="border border-black p-2 text-center w-16">相似度</th>
+                        </tr>
+                    </thead>
+                    <tbody id="report-anomaly-rows">
+                        <!-- JS 動態填充 -->
+                    </tbody>
+                </table>
+                <p class="text-xs text-gray-500 mt-2 text-right">* 僅列出部分高風險項目，完整清單請參閱附件電子檔。</p>
+            </div>
+
+            <!-- 頁腳 -->
+            <div class="absolute bottom-10 left-0 w-full text-center text-[10px] text-gray-400">
+                本報告由系統自動生成，產出時間：<span class="report-timestamp"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 異常類型說明 Modal -->
+    <div id="help-modal" class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center z-[100]">
+        <div class="modal-overlay absolute w-full h-full bg-gray-900 opacity-50"></div>
+        
+        <div class="modal-container bg-white w-11/12 md:max-w-md mx-auto rounded-xl shadow-2xl z-50 overflow-y-auto">
+            
+            <div class="modal-content py-4 text-left px-6">
+                <!-- Title -->
+                <div class="flex justify-between items-center pb-3 border-b border-gray-200">
+                    <p class="text-xl font-bold text-gray-700 flex items-center">
+                        <i class="fas fa-info-circle text-orange-500 mr-2"></i> 異常類型說明
+                    </p>
+                    <div class="cursor-pointer z-50" onclick="toggleModal()">
+                        <i class="fas fa-times text-gray-500 hover:text-gray-700"></i>
+                    </div>
+                </div>
+
+                <!-- Body -->
+                <div class="my-5 space-y-6">
+                    <!-- 說明 1: 內部重複 -->
+                    <div class="flex gap-4 group">
+                        <div class="mt-1 w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-600 flex-shrink-0">
+                            <i class="fas fa-clone"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-gray-800 text-sm">上傳資料重複</h4>
+                            <p class="text-xs text-gray-500 leading-relaxed mt-1">
+                                檢查本次上傳的壓縮檔內，是否存在「同一張照片」被重複使用於不同工項或階段（例如：施工前、施工中照片相同）。
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- 說明 2: 資料庫比對 -->
+                    <div class="flex gap-4 group">
+                        <div class="mt-1 w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 flex-shrink-0">
+                            <i class="fas fa-database"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-gray-800 text-sm">跨案場資料庫比對</h4>
+                            <p class="text-xs text-gray-500 leading-relaxed mt-1">
+                                系統會將照片與歷年已結案之工程影像庫進行特徵比對，揪出廠商是否使用舊案場照片「移花接木」。
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- 說明 3: 檔名重複 -->
+                    <div class="flex gap-4 group">
+                         <div class="mt-1 w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 flex-shrink-0">
+                            <i class="fas fa-file-signature"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-gray-800 text-sm">檔名重複疑慮</h4>
+                            <p class="text-xs text-gray-500 leading-relaxed mt-1">
+                                偵測不同資料夾中是否出現完全相同的檔案名稱，防止因複製貼上錯誤導致的資料覆蓋、缺漏或混淆。
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="flex justify-end pt-2">
+                    <button onclick="toggleModal()" class="px-4 py-2 bg-gray-100 p-3 rounded-lg text-gray-600 hover:bg-gray-200 text-sm font-medium transition">
+                        關閉
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JS 邏輯 -->
+    <script>
+        const loginView = document.getElementById('login-view');
+        const verificationView = document.getElementById('verification-view');
+        const reportView = document.getElementById('report-view');
+        const projectNameInput = document.getElementById('project-name-input');
+        const modal = document.getElementById('help-modal');
+        const filterSelect = document.getElementById('filter-type');
+        const sortSelect = document.getElementById('sort-control');
+        
+        let anomaliesData = []; // 儲存所有異常資料
+        let currentDisplayData = []; // 儲存目前顯示的資料
+
+        // PDF 下載邏輯
+        function downloadPDF() {
+            const element = document.getElementById('report-content');
+            const opt = {
+                margin:       0,
+                filename:     '工程影像異常檢核報告.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2 },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+            
+            // 使用 html2pdf 生成
+            html2pdf().set(opt).from(element).save();
+        }
+
+        // Modal 控制
+        function toggleModal() {
+            const body = document.querySelector('body');
+            modal.classList.toggle('opacity-0');
+            modal.classList.toggle('pointer-events-none');
+            body.classList.toggle('modal-active');
+        }
+
+        // Report 控制
+        function toggleReport() {
+            reportView.classList.toggle('hidden');
+            if(!reportView.classList.contains('hidden')) {
+                generateReportContent();
+            }
+        }
+
+        // 開啟當前工作階段的報告
+        function openCurrentReport() {
+            toggleReport();
+        }
+
+        function generateReportContent() {
+            const now = new Date();
+            document.querySelector('.report-date').innerText = now.toLocaleDateString();
+            document.querySelector('.report-timestamp').innerText = now.toLocaleString();
+            
+            const inputName = projectNameInput.value.trim() || "未命名專案";
+            document.querySelector('.report-project-name').innerText = inputName;
+
+            // 計算各類別數量
+            let counts = { internal: 0, database: 0, filename: 0 };
+            anomaliesData.forEach(item => {
+                if (counts[item.type] !== undefined) {
+                    counts[item.type]++;
+                }
+            });
+
+            // 更新報告上的統計數字
+            document.getElementById('report-total-anomalies').innerText = anomaliesData.length;
+            document.getElementById('report-count-internal').innerText = counts.internal;
+            document.getElementById('report-count-database').innerText = counts.database;
+            document.getElementById('report-count-filename').innerText = counts.filename;
+
+            // 簡單生成前 10 筆作為範例
+            const tbody = document.getElementById('report-anomaly-rows');
+            tbody.innerHTML = '';
+            
+            if (anomaliesData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="p-8 text-center text-gray-500">本案件無異常檢出紀錄。</td></tr>';
+            } else {
+                const reportData = anomaliesData.slice(0, 10);
+                reportData.forEach((item, index) => {
+                    let typeText, colorClass, desc;
+                    if(item.type === 'internal') {
+                        typeText = '上傳資料重複';
+                        colorClass = 'text-red-600';
+                        desc = `檔案A: ${item.fileA}<br>檔案B: ${item.fileB}<br><span class="text-gray-500">說明: 不同階段使用相同照片。</span>`;
+                    } else if(item.type === 'database') {
+                        typeText = '跨案場資料庫';
+                        colorClass = 'text-purple-600';
+                        desc = `本案: ${item.fileA}<br>來源: ${item.dbSource}<br><span class="text-gray-500">說明: 引用歷史結案照片。</span>`;
+                    } else {
+                        typeText = '檔名重複';
+                        colorClass = 'text-blue-600';
+                        desc = `檔案: ${item.fileA}<br><span class="text-gray-500">說明: 多個資料夾發現相同檔名。</span>`;
+                    }
+
+                    tbody.innerHTML += `
+                        <tr>
+                            <td class="border border-black p-2 text-center">${String(index+1).padStart(2,'0')}</td>
+                            <td class="border border-black p-2 font-bold ${colorClass}">${typeText}</td>
+                            <td class="border border-black p-2">${desc}</td>
+                            <td class="border border-black p-2 text-center font-bold">${item.type === 'filename' ? 'Match' : item.score + '%'}</td>
+                        </tr>
+                    `;
+                });
+            }
+        }
+
+        // 點擊 Modal 外部關閉
+        modal.querySelector('.modal-overlay').addEventListener('click', toggleModal);
+
+        // 切換視圖功能
+        function switchView(viewName) {
+            if (viewName === 'verification') {
+                loginView.classList.add('opacity-0', 'scale-95');
+                setTimeout(() => {
+                    loginView.classList.add('hidden');
+                    verificationView.classList.remove('hidden');
+                    requestAnimationFrame(() => {
+                        verificationView.classList.remove('opacity-0', 'scale-95');
+                        verificationView.classList.add('opacity-100', 'scale-100');
+                    });
+                }, 300);
+            } else {
+                verificationView.classList.add('opacity-0', 'scale-95');
+                verificationView.classList.remove('opacity-100', 'scale-100');
+                setTimeout(() => {
+                    verificationView.classList.add('hidden');
+                    loginView.classList.remove('hidden');
+                    requestAnimationFrame(() => {
+                        loginView.classList.remove('opacity-0', 'scale-95');
+                    });
+                    document.getElementById('upload-section').classList.remove('hidden');
+                    document.getElementById('results-section').classList.add('hidden');
+                }, 300);
+            }
+        }
+
+        // ------------------------------------------
+        // 照片檢核流程邏輯
+        // ------------------------------------------
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const processingOverlay = document.getElementById('processing-overlay');
+        const processText = document.getElementById('process-text');
+        const processBar = document.getElementById('process-bar');
+        const processDetail = document.getElementById('process-detail');
+        const demoBtn = document.getElementById('demo-btn');
+        const anomalyList = document.getElementById('anomaly-list');
+        const detailContainer = document.getElementById('detail-view-container');
+
+        // 拖曳相關事件
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, e => {
+                e.preventDefault();
+                e.stopPropagation();
+            }, false);
+        });
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.add('border-orange-400', 'bg-orange-50/50'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.remove('border-orange-400', 'bg-orange-50/50'), false);
+        });
+
+        dropZone.addEventListener('drop', handleDrop, false);
+        dropZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', handleFiles);
+        
+        demoBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            startSimulation('Taitung_Demo_Large_Set.zip');
+        });
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles({ target: { files: files } });
+        }
+
+        function handleFiles(e) {
+            const files = e.target.files;
+            if (files.length > 0) {
+                startSimulation(files[0].name);
+            }
+        }
+
+        function startSimulation(filename) {
+            processingOverlay.classList.remove('hidden');
+            
+            const steps = [
+                { time: 500, text: "解壓縮檔案...", detail: `Reading ${filename}` },
+                { time: 1000, text: "批次特徵提取...", detail: "Processing 452 images" },
+                { time: 2000, text: "資料庫比對中...", detail: "Querying Vector Database" },
+                { time: 2500, text: "生成鑑識報告...", detail: "Found 102 anomalies" }
+            ];
+
+            let currentStep = 0;
+            const interval = setInterval(() => {
+                if (currentStep >= steps.length) {
+                    clearInterval(interval);
+                    finishSimulation();
+                    return;
+                }
+                
+                const step = steps[currentStep];
+                processText.innerText = step.text;
+                processDetail.innerText = step.detail;
+                const percent = ((currentStep + 1) / steps.length) * 100;
+                processBar.style.width = `${percent}%`;
+                
+                currentStep++;
+            }, 600);
+        }
+
+        function finishSimulation() {
+            processingOverlay.classList.add('hidden');
+            document.getElementById('upload-section').classList.add('hidden'); 
+            
+            const inputName = projectNameInput.value.trim() || "未命名專案";
+            document.querySelector('.display-project-name').textContent = `宣稱專案 (${inputName})`;
+
+            // 生成異常清單資料 (模擬 102 筆)
+            anomaliesData = generateMockAnomalies(102);
+            
+            // 初始化顯示所有資料並預設排序
+            handleSortAndFilter();
+
+            const results = document.getElementById('results-section');
+            results.classList.remove('hidden');
+        }
+
+        // 整合排序與篩選邏輯
+        function handleSortAndFilter() {
+            if (anomaliesData.length === 0) return;
+
+            const sortType = sortSelect.value;
+            const filterType = filterSelect.value;
+
+            // 1. 篩選
+            let filtered = anomaliesData;
+            if (filterType !== 'all') {
+                filtered = anomaliesData.filter(item => item.type === filterType);
+            }
+
+            // 2. 排序
+            if (sortType === 'risk-desc') {
+                filtered.sort((a, b) => {
+                    let scoreA = a.type === 'filename' ? 99 : a.score;
+                    let scoreB = b.type === 'filename' ? 99 : b.score;
+                    return scoreB - scoreA;
+                });
+            } else if (sortType === 'risk-asc') {
+                filtered.sort((a, b) => a.score - b.score);
+            } else if (sortType === 'time-new') {
+                filtered.sort((a, b) => b.timeUploadA.localeCompare(a.timeUploadA));
+            }
+
+            currentDisplayData = filtered; // 更新當前顯示的資料
+            renderAnomalyList(currentDisplayData);
+            
+            // 重新選取第一筆
+            if (currentDisplayData.length > 0) {
+                selectAnomaly(currentDisplayData[0], 0);
+            } else {
+                detailContainer.innerHTML = '<div class="h-full flex flex-col items-center justify-center text-gray-400"><p>沒有符合篩選條件的項目</p></div>';
+            }
+        }
+
+        // --- 核心：資料生成與渲染 ---
+
+        function generateMockAnomalies(count) {
+            const data = [];
+            
+            if (count === 0) return data;
+
+            // --- 1. 強制插入具體的「檔名重複」假資料 ---
+            const hardcodedFilenames = [
+                {
+                    id: 9001,
+                    type: 'filename',
+                    title: '異常: 檔名重複疑慮',
+                    fileA: 'IMG_20240520_103001.jpg',
+                    fileB: 'IMG_20240520_103001.jpg',
+                    score: 100,
+                    risk: 'Medium',
+                    timeUploadA: '09:15:22',
+                    timeUploadB: '09:45:10',
+                    dbSource: '資料夾: 01_開工前 / 資料夾: 99_附件'
+                },
+                {
+                    id: 9002,
+                    type: 'filename',
+                    title: '異常: 檔名重複疑慮',
+                    fileA: '大武鄉排水改善_施工全景.jpg',
+                    fileB: '大武鄉排水改善_施工全景.jpg',
+                    score: 100,
+                    risk: 'Low',
+                    timeUploadA: '14:20:05',
+                    timeUploadB: '14:20:05',
+                    dbSource: '資料夾: 03_施工中(5月) / 資料夾: 04_施工中(6月)'
+                },
+                {
+                    id: 9003,
+                    type: 'filename',
+                    title: '異常: 檔名重複疑慮',
+                    fileA: 'DSC_0045.JPG',
+                    fileB: 'DSC_0045.JPG',
+                    score: 100,
+                    risk: 'Medium',
+                    timeUploadA: '11:00:00',
+                    timeUploadB: '11:05:00',
+                    dbSource: '資料夾: A區工項 / 資料夾: B區工項'
+                },
+                {
+                    id: 9004,
+                    type: 'filename',
+                    title: '異常: 檔名重複疑慮',
+                    fileA: 'LINE_ALBUM_240518.jpg',
+                    fileB: 'LINE_ALBUM_240518.jpg',
+                    score: 100,
+                    risk: 'Low',
+                    timeUploadA: '08:30:15',
+                    timeUploadB: '08:35:22',
+                    dbSource: '資料夾: 現場回報 / 資料夾: 監造日報表附件'
+                },
+                {
+                    id: 9005,
+                    type: 'filename',
+                    title: '異常: 檔名重複疑慮',
+                    fileA: 'Screenshot_2024-05-01.png',
+                    fileB: 'Screenshot_2024-05-01.png',
+                    score: 100,
+                    risk: 'High',
+                    timeUploadA: '16:10:00',
+                    timeUploadB: '16:12:00',
+                    dbSource: '資料夾: 驗收簡報 / 資料夾: 修正後資料'
+                }
+            ];
+
+            const itemsToAdd = Math.min(count, hardcodedFilenames.length);
+            data.push(...hardcodedFilenames.slice(0, itemsToAdd));
+            
+            // --- 2. 隨機生成剩餘資料 ---
+            const remainingCount = count - itemsToAdd;
+
+            for (let i = 0; i < remainingCount; i++) {
+                const rand = Math.random();
+                let type;
+                
+                if (rand < 0.48) type = 'internal';
+                else if (rand < 0.99) type = 'database';
+                else type = 'filename';
+
+                const similarity = (Math.random() * (99.9 - 85) + 85).toFixed(1);
+                
+                let title, fileA, fileB, risk, dbSource;
+
+                if (type === 'internal') {
+                    title = `異常: 上傳資料重複`;
+                    fileA = `施工前_${100+i}.jpg`;
+                    fileB = `施工中_${100+i}.jpg`;
+                    risk = 'High';
+                    dbSource = null;
+                } else if (type === 'database') {
+                    title = `異常: 跨案場資料庫比對`;
+                    fileA = `本次上傳_${200+i}.jpg`;
+                    fileB = `歷史存檔_${2022}_ID${9000+i}`;
+                    risk = 'Medium';
+                    dbSource = "2022年度 知本溫泉區景觀改善工程";
+                } else {
+                    title = `異常: 檔名重複疑慮`;
+                    fileA = `2024_Site_Report_${i}.jpg`;
+                    fileB = `2024_Site_Report_${i}.jpg`;
+                    risk = 'Low';
+                    dbSource = "資料夾: 02_基樁工程 / 資料夾: 05_完工報告";
+                }
+                
+                data.push({
+                    id: i,
+                    type: type,
+                    title: title,
+                    fileA: fileA,
+                    fileB: fileB,
+                    score: type === 'filename' ? 100 : similarity,
+                    risk: risk,
+                    timeUploadA: `11:05:${String(i%60).padStart(2,'0')}`,
+                    timeUploadB: `11:05:${String((i+20)%60).padStart(2,'0')}`,
+                    dbSource: dbSource
+                });
+            }
+            return data;
+        }
+
+        function renderAnomalyList(data) {
+            anomalyList.innerHTML = '';
+            data.forEach((item, index) => {
+                const el = document.createElement('div');
+                
+                let iconColor, iconClass;
+                if (item.type === 'internal') {
+                    iconColor = 'text-red-500';
+                    iconClass = 'fa-clone';
+                } else if (item.type === 'database') {
+                    iconColor = 'text-purple-500';
+                    iconClass = 'fa-database';
+                } else {
+                    iconColor = 'text-blue-500';
+                    iconClass = 'fa-file-signature';
+                }
+
+                const bgClass = index === 0 ? 'bg-blue-50 border-l-4 border-blue-500' : 'hover:bg-gray-50 border-l-4 border-transparent';
+                
+                el.className = `anomaly-item cursor-pointer p-3 rounded border border-gray-100 transition-all flex items-center justify-between ${bgClass}`;
+                el.dataset.index = index;
+                el.onclick = () => selectAnomaly(item, index);
+
+                const scoreDisplay = item.type === 'filename' ? 
+                    `<span class="block text-sm font-bold text-blue-600">Match</span>` : 
+                    `<span class="block text-lg font-bold ${item.score > 95 ? 'text-red-600' : 'text-orange-500'}">${item.score}%</span>`;
+
+                const labelDisplay = item.type === 'filename' ? '字串相同' : '相似度';
+
+                el.innerHTML = `
+                    <div class="flex items-center gap-3 overflow-hidden">
+                        <div class="w-10 h-10 rounded bg-gray-100 flex-shrink-0 flex items-center justify-center ${iconColor} bg-opacity-10">
+                            <i class="fas ${iconClass}"></i>
+                        </div>
+                        <div class="min-w-0">
+                            <h4 class="text-sm font-bold text-gray-700 truncate">${item.title}</h4>
+                            <p class="text-xs text-gray-500 truncate">${item.fileA}</p>
+                        </div>
+                    </div>
+                    <div class="text-right flex-shrink-0">
+                        ${scoreDisplay}
+                        <span class="text-[10px] text-gray-400">${labelDisplay}</span>
+                    </div>
+                `;
+                anomalyList.appendChild(el);
+            });
+        }
+
+        function selectAnomaly(item, index) {
+            document.querySelectorAll('.anomaly-item').forEach(el => {
+                el.classList.remove('active', 'bg-blue-50', 'border-blue-500');
+                el.classList.add('border-transparent');
+            });
+            const activeItem = anomalyList.children[index];
+            if(activeItem) {
+                activeItem.classList.add('active', 'bg-blue-50', 'border-blue-500');
+                activeItem.classList.remove('border-transparent');
+            }
+
+            if (item.type === 'internal') {
+                renderInternalDetail(item);
+            } else if (item.type === 'database') {
+                renderDatabaseDetail(item);
+            } else {
+                renderFilenameDetail(item);
+            }
+        }
+
+        function renderInternalDetail(item) {
+            detailContainer.innerHTML = `
+                <div class="border-b border-gray-100 pb-4 mb-4 flex justify-between items-start">
+                    <div>
+                        <span class="px-2 py-1 bg-red-100 text-red-600 text-xs font-bold rounded">上傳資料重複</span>
+                        <h3 class="text-xl font-bold text-gray-800 mt-2">${item.title}</h3>
+                        <p class="text-sm text-gray-500">AI 判定兩張照片僅檔名與分類不同，像素特徵高度重疊。</p>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-3xl font-bold text-red-600">${item.score}%</div>
+                        <div class="text-xs text-gray-500">相似度</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 h-64 mb-6">
+                     <div class="relative group rounded-lg overflow-hidden border-2 border-red-500 bg-black">
+                        <img src="https://placehold.co/600x400/334155/94a3b8?text=${item.fileA}" class="w-full h-full object-contain opacity-90">
+                        <div class="absolute top-2 left-2 bg-black/60 text-white px-2 py-1 text-xs rounded">檔案 A</div>
+                        <div class="keypoint" style="top: 30%; left: 40%"></div>
+                        <div class="keypoint" style="top: 50%; left: 20%"></div>
+                     </div>
+                     <div class="relative group rounded-lg overflow-hidden border-2 border-red-500 bg-black">
+                        <img src="https://placehold.co/600x400/334155/94a3b8?text=${item.fileB}" class="w-full h-full object-contain opacity-90">
+                        <div class="absolute top-2 left-2 bg-black/60 text-white px-2 py-1 text-xs rounded">檔案 B</div>
+                        <div class="keypoint" style="top: 30%; left: 40%"></div>
+                        <div class="keypoint" style="top: 50%; left: 20%"></div>
+                     </div>
+                </div>
+
+                <div class="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                    <h4 class="font-bold text-gray-700 text-sm mb-3">詳細資訊比對</h4>
+                    <table class="w-full text-sm">
+                        <tr class="border-b border-gray-200 text-gray-500 text-xs">
+                            <th class="text-left pb-2 font-normal">欄位</th>
+                            <th class="text-left pb-2 font-normal">檔案 A</th>
+                            <th class="text-left pb-2 font-normal">檔案 B</th>
+                        </tr>
+                        <tr class="border-b border-gray-100">
+                            <td class="py-2 text-gray-500">檔名</td>
+                            <td class="py-2 font-mono text-gray-800">${item.fileA}</td>
+                            <td class="py-2 font-mono text-gray-800">${item.fileB}</td>
+                        </tr>
+                        <tr>
+                            <td class="py-2 text-gray-500">上傳時間</td>
+                            <td class="py-2 font-mono">${item.timeUploadA}</td>
+                            <td class="py-2 font-mono">${item.timeUploadB}</td>
+                        </tr>
+                    </table>
+                </div>
+            `;
+        }
+
+        function renderDatabaseDetail(item) {
+            detailContainer.innerHTML = `
+                <div class="border-b border-gray-100 pb-4 mb-4 flex justify-between items-start">
+                    <div>
+                        <span class="px-2 py-1 bg-purple-100 text-purple-600 text-xs font-bold rounded">跨案場資料庫比對</span>
+                        <h3 class="text-xl font-bold text-gray-800 mt-2">${item.title}</h3>
+                        <p class="text-sm text-gray-500">本案照片與歷史資料庫中的已結案照片高度相似。</p>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-3xl font-bold text-purple-600">${item.score}%</div>
+                        <div class="text-xs text-gray-500">相似度</div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col md:flex-row gap-6 items-center mb-6">
+                     <div class="flex-1 w-full">
+                        <p class="text-xs font-bold text-gray-500 mb-1">本次上傳 (宣稱本案)</p>
+                        <div class="rounded-lg overflow-hidden border-2 border-blue-400 relative h-48 bg-gray-100">
+                             <img src="https://placehold.co/600x400/e2e8f0/64748b?text=${item.fileA}" class="w-full h-full object-cover">
+                        </div>
+                     </div>
+                     <div class="text-purple-500 text-2xl"><i class="fas fa-exchange-alt"></i></div>
+                     <div class="flex-1 w-full">
+                        <p class="text-xs font-bold text-purple-600 mb-1">歷史資料庫 (系統抓取)</p>
+                        <div class="rounded-lg overflow-hidden border-2 border-purple-400 relative h-48 bg-gray-100">
+                             <img src="https://placehold.co/600x400/e2e8f0/64748b?text=Database+Source" class="w-full h-full object-cover mix-blend-multiply">
+                        </div>
+                     </div>
+                </div>
+
+                <div class="bg-purple-50 rounded-xl p-4 border border-purple-100">
+                    <h4 class="font-bold text-purple-900 text-sm mb-2"><i class="fas fa-search-location mr-2"></i>系統查獲原始來源</h4>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <span class="block text-xs text-purple-400">專案名稱</span>
+                            <span class="font-bold text-gray-700">${item.dbSource}</span>
+                        </div>
+                         <div>
+                            <span class="block text-xs text-purple-400">結案日期</span>
+                            <span class="font-bold text-gray-700">2022/12/15</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderFilenameDetail(item) {
+            let folderA = "資料夾: 未知";
+            let folderB = "資料夾: 未知";
+            
+            if (item.dbSource && item.dbSource.includes(' / ')) {
+                const parts = item.dbSource.split(' / ');
+                folderA = parts[0];
+                folderB = parts[1];
+            } else if (item.dbSource) {
+                folderA = item.dbSource;
+            }
+
+            detailContainer.innerHTML = `
+                <div class="border-b border-gray-100 pb-4 mb-4 flex justify-between items-start">
+                    <div>
+                        <span class="px-2 py-1 bg-blue-100 text-blue-600 text-xs font-bold rounded">檔名重複疑慮</span>
+                        <h3 class="text-xl font-bold text-gray-800 mt-2">${item.title}</h3>
+                        <p class="text-sm text-gray-500">偵測到相同的檔案名稱重複出現，建議檢查是否誤傳。</p>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-3xl font-bold text-blue-600">Match</div>
+                        <div class="text-xs text-gray-500">完全一致</div>
+                    </div>
+                </div>
+
+                <div class="bg-blue-50 rounded-xl p-6 border border-blue-200 mb-6 text-center">
+                    <div class="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm text-blue-500 text-3xl">
+                        <i class="fas fa-file-signature"></i>
+                    </div>
+                    <h4 class="text-lg font-bold text-gray-800 mb-2">重複的檔案名稱</h4>
+                    <p class="font-mono text-xl bg-white inline-block px-4 py-2 rounded border border-blue-200 text-blue-700 break-all">
+                        ${item.fileA}
+                    </p>
+                </div>
+
+                <div class="bg-white rounded-xl p-4 border border-gray-200">
+                    <h4 class="font-bold text-gray-700 text-sm mb-3">衝突詳情</h4>
+                    <table class="w-full text-sm">
+                        <tr class="border-b border-gray-200 text-gray-500 text-xs">
+                            <th class="text-left pb-2 font-normal">屬性</th>
+                            <th class="text-left pb-2 font-normal">發現位置 A</th>
+                            <th class="text-left pb-2 font-normal">發現位置 B</th>
+                        </tr>
+                        <tr class="border-b border-gray-100">
+                            <td class="py-2 text-gray-500">來源路徑</td>
+                            <td class="py-2 text-gray-800"><span class="bg-gray-100 px-2 py-1 rounded text-xs">本次上傳</span> ${folderA}</td>
+                            <td class="py-2 text-gray-800"><span class="bg-gray-100 px-2 py-1 rounded text-xs">本次上傳</span> ${folderB}</td>
+                        </tr>
+                        <tr>
+                            <td class="py-2 text-gray-500">衝突說明</td>
+                            <td colspan="2" class="py-2 text-gray-700">在本次上傳的壓縮檔中，於兩個不同的資料夾發現完全相同的檔名，可能為廠商複製貼上錯誤。</td>
+                        </tr>
+                    </table>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
